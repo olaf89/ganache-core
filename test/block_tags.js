@@ -8,11 +8,7 @@ var solc = require("solc");
 var async = require("async");
 var to = require("../lib/utils/to.js");
 
-// Thanks solc. At least this works!
-// This removes solc's overzealous uncaughtException event handler.
-process.removeAllListeners("uncaughtException");
-
-var source = fs.readFileSync("./test/Example.sol", { encoding: "utf8" });
+var source = fs.readFileSync("./test/contracts/examples/Example.sol", { encoding: "utf8" });
 var result = solc.compile(source, 1);
 
 // Note: Certain properties of the following contract data are hardcoded to
