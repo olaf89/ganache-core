@@ -1,5 +1,5 @@
 const assert = require("assert");
-const bootstrap = require("./helpers/contract/bootstrap");
+const bootstrap = require("../helpers/contract/bootstrap");
 
 // Thanks solc. At least this works!
 // This removes solc's overzealous uncaughtException event handler.
