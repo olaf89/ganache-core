@@ -1,12 +1,12 @@
-var Web3 = require("web3");
-var Web3WsProvider = require("web3-providers-ws");
-var Ganache = require(process.env.TEST_BUILD
+const Web3 = require("web3");
+const Web3WsProvider = require("web3-providers-ws");
+const Ganache = require(process.env.TEST_BUILD
   ? "../build/ganache.core." + process.env.TEST_BUILD + ".js"
   : "../index.js");
-var assert = require("assert");
-var solc = require("solc");
+const assert = require("assert");
+const solc = require("solc");
 
-var source =
+const source =
   "                      \n" +
   "pragma solidity ^0.4.24;            \n" +
   "contract EventTest {                \n" +
@@ -17,55 +17,45 @@ var source =
   "  }                                 \n" +
   "}";
 
-var tests = function(web3, EventTest) {
-  var accounts;
-  var instance;
+let tests = function(web3, EventTest) {
+  let accounts;
+  let instance;
 
   describe("events", function() {
-    before(function(done) {
-      web3.eth.getAccounts(function(err, accs) {
-        if (err) {
-          return done(err);
-        }
-        accounts = accs;
-        done();
-      });
+    before(async function() {
+      accounts = await web3.eth.getAccounts();
     });
 
     before(function(done) {
       this.timeout(10000);
-      var result = solc.compile(source, 1);
+      const result = solc.compile(source, 1);
 
       if (result.errors != null) {
         done(result.errors[0]);
         return;
       }
 
-      var abi = JSON.parse(result.contracts[":EventTest"].interface);
+      const abi = JSON.parse(result.contracts[":EventTest"].interface);
       EventTest = new web3.eth.Contract(abi);
       EventTest._data = "0x" + result.contracts[":EventTest"].bytecode;
       done();
     });
 
-    before(function() {
-      return EventTest.deploy({ data: EventTest._data })
-        .send({ from: accounts[0], gas: 3141592 })
-        .then((contract) => {
-          instance = contract;
+    before(async function() {
+      instance = await EventTest.deploy({ data: EventTest._data }).send({ from: accounts[0], gas: 3141592 });
 
-          // TODO: ugly workaround - not sure why this is necessary.
-          if (!instance._requestManager.provider) {
-            instance._requestManager.setProvider(web3.eth._provider);
-          }
-        });
+      // TODO: ugly workaround - not sure why this is necessary.
+      if (!instance._requestManager.provider) {
+        instance._requestManager.setProvider(web3.eth._provider);
+      }
     });
 
     it("should handle events properly via the data event handler", function(done) {
-      var expectedValue = "1";
+      const expectedValue = "1";
 
-      var event = instance.events.ExampleEvent({ filter: { first: expectedValue } });
+      const event = instance.events.ExampleEvent({ filter: { first: expectedValue } });
 
-      var listener = function(result) {
+      const listener = function(result) {
         assert.strictEqual(result.returnValues.first, expectedValue);
         done();
       };
@@ -78,11 +68,11 @@ var tests = function(web3, EventTest) {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("grabs events in the past", function(done) {
-      var expectedValue = "2";
+      const expectedValue = "2";
 
-      var event = instance.events.ExampleEvent({ filter: { first: expectedValue }, fromBlock: 0 });
+      const event = instance.events.ExampleEvent({ filter: { first: expectedValue }, fromBlock: 0 });
 
-      var listener = function(result) {
+      const listener = function(result) {
         assert.strictEqual(result.returnValues.first, expectedValue);
         done();
       };
@@ -94,16 +84,16 @@ var tests = function(web3, EventTest) {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("accepts an array of topics as a filter", function(done) {
-      var expectedValueA = 3;
-      var expectedValueB = 4;
+      const expectedValueA = 3;
+      const expectedValueB = 4;
 
-      var event = instance.events.ExampleEvent({ filter: { first: [expectedValueA, expectedValueB] }, fromBlock: 0 });
+      const event = instance.events.ExampleEvent({ filter: { first: [expectedValueA, expectedValueB] }, fromBlock: 0 });
 
-      var waitingFor = {};
+      const waitingFor = {};
       waitingFor[expectedValueA] = true;
       waitingFor[expectedValueB] = true;
 
-      var listener = function(result) {
+      const listener = function(result) {
         assert(waitingFor.hasOwnProperty(result.returnValues.first));
         delete waitingFor[result.returnValues.first];
 
@@ -129,7 +119,7 @@ var tests = function(web3, EventTest) {
     });
 
     it("only returns logs for the expected address", function(done) {
-      var expectedValue = "1";
+      const expectedValue = "1";
 
       EventTest.deploy({ data: EventTest._data })
         .send({ from: accounts[0], gas: 3141592 })
@@ -139,7 +129,7 @@ var tests = function(web3, EventTest) {
             newInstance._requestManager.setProvider(web3.eth._provider);
           }
 
-          var event = newInstance.events.ExampleEvent({ filter: { first: expectedValue }, fromBlock: 0 });
+          const event = newInstance.events.ExampleEvent({ filter: { first: expectedValue }, fromBlock: 0 });
 
           event.on("data", function(result) {
             assert(result.returnValues.first === expectedValue);
@@ -158,7 +148,7 @@ var tests = function(web3, EventTest) {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("should return logs with correctly formatted logIndex and transactionIndex", function(done) {
-      var provider = web3.currentProvider;
+      const provider = web3.currentProvider;
 
       provider.send(
         {
@@ -191,7 +181,7 @@ var tests = function(web3, EventTest) {
     });
 
     it("always returns a change for every new block subscription when instamining", function(done) {
-      var provider = web3.currentProvider;
+      const provider = web3.currentProvider;
 
       provider.send(
         {
@@ -239,11 +229,11 @@ var tests = function(web3, EventTest) {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("ensures topics are respected in past events, using `event.get()` (exclusive)", function(done) {
-      var unexpectedValue = 1337;
-      var event = instance.events.ExampleEvent({ filter: { first: unexpectedValue }, fromBlock: 0 });
+      const unexpectedValue = 1337;
+      const event = instance.events.ExampleEvent({ filter: { first: unexpectedValue }, fromBlock: 0 });
 
       // There should be no logs because we provided a different number.
-      var listener = function(result) {
+      const listener = function(result) {
         assert.fail("Event should not have fired");
       };
 
@@ -263,10 +253,10 @@ var tests = function(web3, EventTest) {
 
     // TODO: web3 1.0 drops fromBlock on a subscription request - stop skipping this when that is fixed
     it.skip("will not fire if logs are requested when fromBlock doesn't exist", function(done) {
-      var event = instance.events.ExampleEvent({ fromBlock: 100000 });
+      const event = instance.events.ExampleEvent({ fromBlock: 100000 });
 
       // fromBlock doesn't exist, hence no logs
-      var listener = function(result) {
+      const listener = function(result) {
         assert.fail("Event should not have fired");
       };
 
@@ -286,14 +276,14 @@ var tests = function(web3, EventTest) {
   });
 };
 
-var logger = {
+const logger = {
   log: function(message) {
     // console.log(message);
   }
 };
 
 describe("Provider:", function() {
-  var web3 = new Web3();
+  const web3 = new Web3();
   web3.setProvider(
     Ganache.provider({
       logger: logger
@@ -303,9 +293,9 @@ describe("Provider:", function() {
 });
 
 describe("Server:", function(done) {
-  var web3 = new Web3();
-  var port = 12345;
-  var server;
+  const web3 = new Web3();
+  const port = 12345;
+  let server;
 
   before("Initialize Ganache server", function(done) {
     server = Ganache.server({
