@@ -2,7 +2,7 @@ const assert = require("assert");
 const bootstrap = require("../helpers/contract/bootstrap");
 const randomInteger = require("../helpers/utils/generateRandomInteger");
 
-describe.only("Specifying a sender gas limit greater than block gas limitations", function() {
+describe.skip("Specifying a sender gas limit greater than block gas limitations", function() {
   const SEED_RANGE = 1000000;
   let context;
 
