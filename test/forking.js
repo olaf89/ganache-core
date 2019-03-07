@@ -7,7 +7,9 @@ var Ganache = require(process.env.TEST_BUILD
 var fs = require("fs");
 var solc = require("solc");
 var to = require("../lib/utils/to.js");
-
+const { compileAndDeploy } = require("./helpers/contract/compileAndDeploy");
+const generateSend = require("./helpers/utils/rpc");
+const BN = require("bn.js");
 var logger = {
   log: function(msg) {
     /* console.log(msg) */
@@ -492,5 +494,93 @@ describe("Forking", function() {
         done();
       });
     });
+  });
+});
+
+describe("Forking state changes", function() {
+  const forkedWeb3Port = 21345;
+  const forkedTargetUrl = `ws://localhost:${forkedWeb3Port}`;
+  const forkedWeb3NetworkId = Date.now();
+  const forkedWeb3 = new Web3();
+  const web3 = new Web3();
+  let forkedServer;
+  // let forkedAccounts;
+  let BuggedDuplicateDeposit; // https://github.com/trufflesuite/ganache-cli/issues/623
+  let send;
+  before("Initialize Fallback Ganache server", async() => {
+    forkedServer = Ganache.server({
+      // Do not change seed. Determinism matters for these tests.
+      seed: "ganache",
+      ws: true,
+      logger: logger,
+      network_id: forkedWeb3NetworkId
+    });
+
+    await forkedServer.listen(forkedWeb3Port);
+  });
+
+  before("set forkedWeb3 provider", () => {
+    forkedWeb3.setProvider(new Web3WsProvider(forkedTargetUrl));
+  });
+
+  // before("Gather forked accounts", async() => {
+  //   forkedAccounts = await forkedWeb3.eth.getAccounts();
+  // });
+
+  before("Set main web3 provider, forking from forked chain at this point", async() => {
+    const provider = Ganache.provider({
+      fork: forkedTargetUrl.replace("ws", "http"),
+      logger,
+      // Do not change seed. Determinism matters for these tests.
+      seed: "ganache"
+    });
+    web3.setProvider(provider);
+    send = generateSend(provider);
+    // forkBlockNumber = await forkedWeb3.eth.getBlockNumber();
+  });
+
+  before("Setting up web3 and contract", async function() {
+    this.timeout(10000);
+    const options = ["BuggedDuplicateDeposit", [], `${__dirname}/contracts/forking/`, web3];
+    BuggedDuplicateDeposit = await compileAndDeploy(...options);
+  });
+
+  it("should work", async function() {
+    const { instance, accounts } = BuggedDuplicateDeposit;
+    const sendTransaction = (tx) => send("eth_sendTransaction", tx);
+    console.log(!!instance);
+    const ether = new BN(10).pow(new BN(18));
+    const tx = { from: accounts[1], to: instance._address };
+    console.log(
+      await send(
+        "eth_call",
+        Object.assign(
+          {
+            data: instance.methods.balanceOf(accounts[1]).encodeABI()
+          },
+          tx
+        )
+      )
+    );
+    await sendTransaction({
+      from: accounts[1],
+      to: instance._address,
+      value: `0x${ether.toString("hex")}`
+    });
+    console.log(new BN((await send("eth_getBalance", accounts[1])).result.substring(2), "hex").toString());
+    const { result: balance } = await send(
+      "eth_call",
+      Object.assign(
+        {
+          data: instance.methods.balanceOf(accounts[1]).encodeABI()
+        },
+        tx
+      )
+    );
+
+    console.log(new BN(balance.substring(2), "hex").toString(10));
+    console.log(ether.toString(10));
+
+    console.log(BuggedDuplicateDeposit);
   });
 });
