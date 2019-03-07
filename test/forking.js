@@ -551,17 +551,14 @@ describe("Forking state changes", function() {
     console.log(!!instance);
     const ether = new BN(10).pow(new BN(18));
     const tx = { from: accounts[1], to: instance._address };
-    console.log(
-      await send(
-        "eth_call",
-        Object.assign(
-          {
-            data: instance.methods.balanceOf(accounts[1]).encodeABI()
-          },
-          tx
-        )
-      )
+    const callTx = Object.assign(
+      {
+        data: instance.methods.balanceOf(accounts[1]).encodeABI()
+      },
+      tx
     );
+    const { result: originalBalance } = await send("eth_call", callTx);
+    console.log(originalBalance);
     await sendTransaction({
       from: accounts[1],
       to: instance._address,
