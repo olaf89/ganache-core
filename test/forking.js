@@ -497,7 +497,7 @@ describe("Forking", function() {
   });
 });
 
-describe("Forking state changes", function() {
+describe.only("Forking state changes", function() {
   const forkedWeb3Port = 21345;
   const forkedTargetUrl = `ws://localhost:${forkedWeb3Port}`;
   const forkedWeb3NetworkId = Date.now();
@@ -548,36 +548,37 @@ describe("Forking state changes", function() {
   it("should work", async function() {
     const { instance, accounts } = BuggedDuplicateDeposit;
     const sendTransaction = (tx) => send("eth_sendTransaction", tx);
-    console.log(!!instance);
+    const address = accounts[1];
+    // const address = accounts[1].toLowerCase();
     const ether = new BN(10).pow(new BN(18));
     const tx = { from: accounts[1], to: instance._address };
-    const callTx = Object.assign(
-      {
-        data: instance.methods.balanceOf(accounts[1]).encodeABI()
-      },
-      tx
-    );
+    const callTx = Object.assign({ data: instance.methods.balanceOf(address).encodeABI() }, tx);
     const { result: originalBalance } = await send("eth_call", callTx);
-    console.log(originalBalance);
-    await sendTransaction({
-      from: accounts[1],
+    console.log("original balanceOf: " + new BN(originalBalance.slice(2)).toString(10));
+    const sendEtherTx = {
+      from: address,
       to: instance._address,
       value: `0x${ether.toString("hex")}`
-    });
-    console.log(new BN((await send("eth_getBalance", accounts[1])).result.substring(2), "hex").toString());
-    const { result: balance } = await send(
-      "eth_call",
-      Object.assign(
-        {
-          data: instance.methods.balanceOf(accounts[1]).encodeABI()
-        },
-        tx
-      )
+    };
+    await send("eth_estimateGas", sendEtherTx);
+    console.log("got estimate");
+
+    const { result: balanceAfterEst } = await send("eth_call", callTx);
+    console.log("after estimate balanceOf: " + new BN(balanceAfterEst.slice(2), "hex").toString(10));
+
+    console.log(
+      "address balance: " + new BN((await send("eth_getBalance", address)).result.substring(2), "hex").toString()
+    );
+    await sendTransaction(sendEtherTx);
+    console.log("sent tx");
+    console.log(
+      "address balance: " + new BN((await send("eth_getBalance", address)).result.substring(2), "hex").toString()
     );
 
-    console.log(new BN(balance.substring(2), "hex").toString(10));
-    console.log(ether.toString(10));
+    const { result: balance } = await send("eth_call", callTx);
+    console.log("new balanceOf: " + new BN(balance.slice(2), "hex").toString(10));
+    console.log("1 ether in wei:" + ether.toString(10));
 
-    console.log(BuggedDuplicateDeposit);
+    console.log("done");
   });
 });
