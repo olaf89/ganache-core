@@ -16,11 +16,20 @@ const source =
   "  }                                 \n" +
   "}";
 
-let tests = function(web3, EventTest) {
-  let accounts;
-  let instance;
+describe("Provider:", function() {
+  const logger = { log: function(message) {} };
+  const web3 = new Web3();
+  web3.setProvider(
+    Ganache.provider({
+      logger
+    })
+  );
 
   describe("events", function() {
+    let accounts;
+    let instance;
+    let EventTest;
+
     before(async function() {
       accounts = await web3.eth.getAccounts();
     });
@@ -273,20 +282,4 @@ let tests = function(web3, EventTest) {
         });
     });
   });
-};
-
-const logger = {
-  log: function(message) {
-    // console.log(message);
-  }
-};
-
-describe("Provider:", function() {
-  const web3 = new Web3();
-  web3.setProvider(
-    Ganache.provider({
-      logger: logger
-    })
-  );
-  tests(web3);
 });
