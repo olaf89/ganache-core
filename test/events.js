@@ -1,74 +1,56 @@
-const Web3 = require("web3");
-const Ganache = require(process.env.TEST_BUILD
-  ? "../build/ganache.core." + process.env.TEST_BUILD + ".js"
-  : "../index.js");
 const assert = require("assert");
-const solc = require("solc");
-
-const source =
-  "                      \n" +
-  "pragma solidity ^0.4.24;            \n" +
-  "contract EventTest {                \n" +
-  "  event ExampleEvent(uint indexed first, uint indexed second);   \n" +
-  "                                    \n" +
-  "  function triggerEvent(uint _first, uint _second) public { \n" +
-  "    emit ExampleEvent(_first, _second);      \n" +
-  "  }                                 \n" +
-  "}";
+const bootstrap = require("./helpers/contract/bootstrap");
 
 describe("Provider:", function() {
   const logger = { log: function(message) {} };
+  /*
   const web3 = new Web3();
   web3.setProvider(
     Ganache.provider({
       logger
     })
   );
+  */
 
-  describe("events", function() {
-    let accounts;
-    let instance;
-    let EventTest;
+  describe.only("events", function() {
+    let context;
 
-    before(async function() {
-      accounts = await web3.eth.getAccounts();
+    before("Setting up web3 and contract", async function() {
+      this.timeout(10000);
+
+      const contractRef = {
+        contractFiles: ["EventTest"],
+        contractSubdirectory: "event"
+      };
+
+      const ganacheProviderOptions = { logger };
+      context = await bootstrap(contractRef, ganacheProviderOptions);
     });
 
-    before(function(done) {
+    /*
+    before("Setup accounts and deploy contract", async function() {
       this.timeout(10000);
+      accounts = await web3.eth.getAccounts();
       const result = solc.compile(source, 1);
 
-      if (result.errors != null) {
-        done(result.errors[0]);
-        return;
-      }
-
       const abi = JSON.parse(result.contracts[":EventTest"].interface);
-      EventTest = new web3.eth.Contract(abi);
-      EventTest._data = "0x" + result.contracts[":EventTest"].bytecode;
-      done();
+      contract = new web3.eth.Contract(abi);
+      contract._data = "0x" + result.contracts[":EventTest"].bytecode;
+      instance = await contract.deploy({ data: contract._data }).send({ from: accounts[0], gas: 3141592 });
     });
-
-    before(async function() {
-      instance = await EventTest.deploy({ data: EventTest._data }).send({ from: accounts[0], gas: 3141592 });
-
-      // TODO: ugly workaround - not sure why this is necessary.
-      if (!instance._requestManager.provider) {
-        instance._requestManager.setProvider(web3.eth._provider);
-      }
-    });
+    */
 
     it("should handle events properly via the data event handler", function(done) {
+      const { accounts, instance } = context;
       const expectedValue = "1";
 
       const event = instance.events.ExampleEvent({ filter: { first: expectedValue } });
 
-      const listener = function(result) {
+      event.once("data", function(result) {
         assert.strictEqual(result.returnValues.first, expectedValue);
         done();
-      };
+      });
 
-      event.once("data", listener);
       event.once("error", (err) => done(err));
 
       instance.methods.triggerEvent(1, 6).send({ from: accounts[0], gas: 3141592 });
@@ -76,6 +58,7 @@ describe("Provider:", function() {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("grabs events in the past", function(done) {
+      const { accounts, instance } = context;
       const expectedValue = "2";
 
       const event = instance.events.ExampleEvent({ filter: { first: expectedValue }, fromBlock: 0 });
@@ -92,6 +75,7 @@ describe("Provider:", function() {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("accepts an array of topics as a filter", function(done) {
+      const { accounts, instance } = context;
       const expectedValueA = 3;
       const expectedValueB = 4;
 
@@ -127,9 +111,11 @@ describe("Provider:", function() {
     });
 
     it("only returns logs for the expected address", function(done) {
+      const { accounts, contract, instance, web3 } = context;
       const expectedValue = "1";
 
-      EventTest.deploy({ data: EventTest._data })
+      contract
+        .deploy({ data: contract._data })
         .send({ from: accounts[0], gas: 3141592 })
         .then((newInstance) => {
           // TODO: ugly workaround - not sure why this is necessary.
@@ -156,8 +142,7 @@ describe("Provider:", function() {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("should return logs with correctly formatted logIndex and transactionIndex", function(done) {
-      const provider = web3.currentProvider;
-
+      const { provider } = context;
       provider.send(
         {
           jsonrpc: "2.0",
@@ -189,7 +174,7 @@ describe("Provider:", function() {
     });
 
     it("always returns a change for every new block subscription when instamining", function(done) {
-      const provider = web3.currentProvider;
+      const { provider } = context;
 
       provider.send(
         {
@@ -219,7 +204,7 @@ describe("Provider:", function() {
           // can't use `once` here because Web3WsProvider only has `on` :-(
           provider.on("data", listener);
 
-          web3.currentProvider.send(
+          provider.send(
             {
               jsonrpc: "2.0",
               method: "evm_mine",
@@ -237,6 +222,7 @@ describe("Provider:", function() {
 
     // NOTE! This test relies on the events triggered in the tests above.
     it("ensures topics are respected in past events, using `event.get()` (exclusive)", function(done) {
+      const { accounts, instance } = context;
       const unexpectedValue = 1337;
       const event = instance.events.ExampleEvent({ filter: { first: unexpectedValue }, fromBlock: 0 });
 
@@ -261,6 +247,7 @@ describe("Provider:", function() {
 
     // TODO: web3 1.0 drops fromBlock on a subscription request - stop skipping this when that is fixed
     it.skip("will not fire if logs are requested when fromBlock doesn't exist", function(done) {
+      const { accounts, instance } = context;
       const event = instance.events.ExampleEvent({ fromBlock: 100000 });
 
       // fromBlock doesn't exist, hence no logs

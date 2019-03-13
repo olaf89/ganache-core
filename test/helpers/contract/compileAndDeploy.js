@@ -1,4 +1,5 @@
 const solc = require("solc");
+const { join } = require("path");
 const { readFileSync } = require("fs");
 
 /**
@@ -8,7 +9,8 @@ const { readFileSync } = require("fs");
  * @param {String} contractPath  Path to contracts directory
  * @returns {Object} context: abi, bytecode, sources
  */
-async function compile(mainContractName, contractFileNames = [], contractPath) {
+async function compile(mainContractName, contractFileNames = [], contractSubdirectory) {
+  const contractPath = join(__dirname, "..", "..", "contracts", `${contractSubdirectory}/`);
   const selectedContracts = [mainContractName].concat(contractFileNames);
 
   const contractSources = selectedContracts.map((contractName) => {
@@ -47,6 +49,7 @@ async function deploy(abi, bytecode, web3, options = {}, existingAccounts = []) 
 
   if (existingAccounts.length) {
     block = await web3.eth.getBlock("latest");
+    accounts = existingAccounts;
   } else {
     const initialAssets = [web3.eth.getAccounts(), web3.eth.getBlock("latest")];
     [accounts, block] = await Promise.all(initialAssets);
