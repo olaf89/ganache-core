@@ -20,7 +20,8 @@
     "test": "npm run _lint && npm run nyc_mocha",
     "test-build": "cross-env TEST_BUILD=node npm run _mocha",
     "test-web-experimental": "cross-env TEST_BUILD=web-experimental npm run _mocha",
-    "coverage": "nyc report --reporter=text-lcov | coveralls"
+    "coverage": "nyc report --reporter=text-lcov | coveralls",
+    "install": "npm run build"
   },
   "dependencies": {
     "abstract-leveldown": "3.0.0",
